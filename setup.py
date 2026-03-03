@@ -36,12 +36,12 @@ ABOUT = load_about()
 
 
 setup(
-    name="tutor-contrib-branding",
+    name="tutor-contrib-inovatec-openedx-branding",
     version=ABOUT["__version__"],
-    url="https://github.com/aulasneo/tutor-contrib-branding",
+    url="https://github.com/ejklock/tutor-contrib-inovatec-openedx-branding",
     project_urls={
-        "Code": "https://github.com/aulasneo/tutor-contrib-brandingh",
-        "Issue tracker": "https://github.com/aulasneo/tutor-contrib-branding/issues",
+        "Code": "https://github.com/ejklock/tutor-contrib-inovatec-openedx-branding",
+        "Issue tracker": "https://github.com/ejklock/tutor-contrib-inovatec-openedx-branding/issues",
     },
     license="AGPLv3",
     author="Aulasneo",
@@ -52,7 +52,7 @@ setup(
     packages=find_packages(exclude=["tests*"]),
     include_package_data=True,
     python_requires=">=3.7",
-    install_requires=["tutor >= 19.0.0, < 20.0.0", "urllib3==1.26.6"],
+    install_requires=["tutor >= 21.0.0, < 22.0.0"],
     entry_points={
         "tutor.plugin.v1": [
             "branding = tutorbranding.plugin"
