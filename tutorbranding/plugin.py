@@ -1,12 +1,16 @@
 """
-Tutor plugin to brand your Open edX instance.
+Tutor plugin to brand your Open edX instance with the Inovatec theme.
+Includes full dark-mode toggle, custom footer, logo slot, and MFE styling.
 """
-from glob import glob
+import itertools
+import json
 import os
+import typing as t
+from glob import glob
 
 import click
 import importlib_resources
-from tutormfe.hooks import MFE_APPS
+from tutormfe.hooks import MFE_APPS, MFE_ATTRS_TYPE, PLUGIN_SLOTS
 
 from tutor import config as tutor_config
 from tutor import fmt, hooks
@@ -19,6 +23,8 @@ config = {
     "defaults": {
         "VERSION": __version__,
         "WELCOME_MESSAGE": "Welcome to Open edX®",
+        # Enable/disable dark theme toggle in MFEs
+        "ENABLE_DARK_TOGGLE": True,
         # Footer links are dictionaries with a "title" and "url"
         # To remove all links, run:
         # tutor config save --set BRANDING_FOOTER_NAV_LINKS=[] --set BRANDING_FOOTER_LEGAL_LINKS=[]
@@ -127,18 +133,225 @@ hooks.Filters.ENV_TEMPLATE_TARGETS.add_items(
 )
 
 # Force the rendering of scss files, even though they are included in a "partials" directory
-hooks.Filters.ENV_PATTERNS_INCLUDE.add_item(r"inovatec/lms/static/sass/partials/lms/theme/")
+hooks.Filters.ENV_PATTERNS_INCLUDE.add_items([
+    r"inovatec/lms/static/sass/partials/lms/theme/",
+    r"inovatec/cms/static/sass/partials/cms/theme/",
+])
 
+# ---- MFE styled with the Inovatec brand package ----
+inovatec_styled_mfes = [
+    "learning",
+    "learner-dashboard",
+    "profile",
+    "account",
+    "discussions",
+]
 
-# MFEs
+for mfe in inovatec_styled_mfes:
+    hooks.Filters.ENV_PATCHES.add_item((
+        f"mfe-dockerfile-post-npm-install-{mfe}",
+        "RUN npm install '@edx/brand@file:/openedx/brand-openedx'",
+    ))
+
+hooks.Filters.ENV_PATCHES.add_item((
+    "mfe-dockerfile-post-npm-install-authn",
+    "RUN npm install '@edx/brand@file:/openedx/brand-openedx'",
+))
+
+# ---- Pipeline JS patches (adds dark-theme.js to LMS pages) ----
+hooks.Filters.ENV_PATCHES.add_items([
+    (
+        "openedx-common-assets-settings",
+        """
+javascript_files = ['base_application', 'application', 'certificates_wv']
+dark_theme_filepath = ['inovatec/js/dark-theme.js']
+
+for filename in javascript_files:
+    if filename in PIPELINE['JAVASCRIPT']:
+        PIPELINE['JAVASCRIPT'][filename]['source_filenames'] += dark_theme_filepath
+""",
+    ),
+    (
+        "openedx-lms-development-settings",
+        """
+javascript_files = ['base_application', 'application', 'certificates_wv']
+dark_theme_filepath = ['inovatec/js/dark-theme.js']
+
+for filename in javascript_files:
+    if filename in PIPELINE['JAVASCRIPT']:
+        PIPELINE['JAVASCRIPT'][filename]['source_filenames'] += dark_theme_filepath
+
+MFE_CONFIG['BRANDING_ENABLE_DARK_TOGGLE'] = {{ BRANDING_ENABLE_DARK_TOGGLE }}
+MFE_CONFIG['BRANDING_FOOTER_NAV_LINKS'] = {{ BRANDING_FOOTER_NAV_LINKS }}
+""",
+    ),
+    (
+        "openedx-lms-production-settings",
+        """
+MFE_CONFIG['BRANDING_ENABLE_DARK_TOGGLE'] = {{ BRANDING_ENABLE_DARK_TOGGLE }}
+MFE_CONFIG['BRANDING_FOOTER_NAV_LINKS'] = {{ BRANDING_FOOTER_NAV_LINKS }}
+""",
+    ),
+])
+
+# ---- Plugin Slots: footer, dark theme reader, toggle button, mobile header ----
+for mfe in inovatec_styled_mfes:
+    PLUGIN_SLOTS.add_item((
+        mfe,
+        "org.openedx.frontend.layout.footer.v1",
+        """
+        {
+            op: PLUGIN_OPERATIONS.Hide,
+            widgetId: 'default_contents',
+        },
+        {
+            op: PLUGIN_OPERATIONS.Insert,
+            widget: {
+                id: 'inovatec_footer',
+                type: DIRECT_PLUGIN,
+                priority: 1,
+                RenderWidget: InovatecFooter,
+            },
+        },
+        {
+            op: PLUGIN_OPERATIONS.Insert,
+            widget: {
+                id: 'read_theme_cookie',
+                type: DIRECT_PLUGIN,
+                priority: 2,
+                RenderWidget: AddDarkTheme,
+            },
+        },
+        """,
+    ))
+    if mfe != "learning":
+        PLUGIN_SLOTS.add_item((
+            mfe,
+            "desktop_secondary_menu_slot",
+            """
+            {
+                op: PLUGIN_OPERATIONS.Insert,
+                widget: {
+                    id: 'theme_switch_button',
+                    type: DIRECT_PLUGIN,
+                    RenderWidget: ToggleThemeButton,
+                },
+            },
+            """,
+        ))
+        PLUGIN_SLOTS.add_items([
+            (
+                mfe,
+                "mobile_header_slot",
+                """
+            {
+                op: PLUGIN_OPERATIONS.Hide,
+                widgetId: 'default_contents',
+            }
+            """,
+            ),
+            (
+                mfe,
+                "mobile_header_slot",
+                """
+            {
+                op: PLUGIN_OPERATIONS.Insert,
+                widget: {
+                    id: 'theme_switch_button',
+                    type: DIRECT_PLUGIN,
+                    RenderWidget: MobileViewHeader,
+                },
+            },
+            """,
+            ),
+        ])
+
+PLUGIN_SLOTS.add_items([
+    (
+        "learning",
+        "learning_help_slot",
+        """
+    {
+        op: PLUGIN_OPERATIONS.Hide,
+        widgetId: 'default_contents',
+    }
+    """,
+    ),
+    (
+        "learning",
+        "learning_help_slot",
+        """
+    {
+        op: PLUGIN_OPERATIONS.Insert,
+        widget: {
+            id: 'theme_switch_button',
+            type: DIRECT_PLUGIN,
+            RenderWidget: ToggleThemeButton,
+        },
+    },
+    """,
+    ),
+])
+
+# ---- Paragon theme URLs (light + dark CSS) ----
+paragon_theme_urls: t.Dict[str, t.Any] = {
+    "variants": {
+        "light": {
+            "urls": {
+                "default": "https://raw.githubusercontent.com/edly-io/brand-openedx/refs/heads/ulmo/indigo/dist/light.min.css",
+                "brandOverride": "https://raw.githubusercontent.com/edly-io/brand-openedx/refs/heads/ulmo/indigo/dist/light.min.css",
+            },
+        },
+        "dark": {
+            "urls": {
+                "default": "https://raw.githubusercontent.com/edly-io/brand-openedx/refs/heads/ulmo/indigo/dist/dark.min.css",
+                "brandOverride": "https://raw.githubusercontent.com/edly-io/brand-openedx/refs/heads/ulmo/indigo/dist/dark.min.css",
+            },
+        },
+    }
+}
+
+hooks.Filters.ENV_PATCHES.add_item((
+    "mfe-lms-common-settings",
+    f'MFE_CONFIG["PARAGON_THEME_URLS"] = {json.dumps(paragon_theme_urls)}\n'
+    + '{% if BRANDING_MFE_LOGO_URL %}MFE_CONFIG["LOGO_URL"] = "{{ BRANDING_MFE_LOGO_URL }}"{% endif %}\n'
+    + '{% if BRANDING_MFE_LOGO_WHITE_URL %}MFE_CONFIG["LOGO_WHITE_URL"] = "{{ BRANDING_MFE_LOGO_WHITE_URL }}"{% endif %}\n'
+    + '{% if BRANDING_MFE_LOGO_TRADEMARK_URL %}MFE_CONFIG["LOGO_TRADEMARK_URL"] = "{{ BRANDING_MFE_LOGO_TRADEMARK_URL }}"{% endif %}\n',
+))
+
+# ---- Logo slot: swap default logo for ThemedLogo in every MFE ----
 @MFE_APPS.add()
-def _add_my_mfe(mfes):
+def _add_themed_logo(mfes: dict[str, MFE_ATTRS_TYPE]) -> dict[str, MFE_ATTRS_TYPE]:
+    for mfe in mfes:
+        PLUGIN_SLOTS.add_item((
+            str(mfe),
+            "logo_slot",
+            """
+            {
+                op: PLUGIN_OPERATIONS.Hide,
+                widgetId: 'default_contents',
+            },
+            {
+                op: PLUGIN_OPERATIONS.Insert,
+                widget: {
+                    id: 'custom_logo',
+                    type: DIRECT_PLUGIN,
+                    RenderWidget: ThemedLogo,
+                }
+            }
+            """,
+        ))
+    return mfes
+
+
+# ---- Custom MFE support (add or override MFE repos/ports) ----
+@MFE_APPS.add()
+def _add_custom_mfes(mfes: dict[str, MFE_ATTRS_TYPE]) -> dict[str, MFE_ATTRS_TYPE]:
     current_context = click.get_current_context()
     root = current_context.params.get('root')
     if root:
         configuration = tutor_config.load(root)
         for mfe_name, mfe_config in configuration['BRANDING_MFE'].items():
-            # Check for custom MFE port
             if mfe_name not in mfes:
                 if 'repository' not in mfe_config:
                     fmt.echo_error(f"Custom MFE {mfe_name} must have a repository")
@@ -157,7 +370,11 @@ def _add_my_mfe(mfes):
     return mfes
 
 
-# Load patches from files
-for path in glob(str(importlib_resources.files("tutorbranding") / "patches" / "*")):
+# ---- Load all patches and components from files ----
+for path in itertools.chain(
+    glob(str(importlib_resources.files("tutorbranding") / "components" / "*")),
+    glob(str(importlib_resources.files("tutorbranding") / "patches" / "*")),
+):
     with open(path, encoding="utf-8") as patch_file:
         hooks.Filters.ENV_PATCHES.add_item((os.path.basename(path), patch_file.read()))
+

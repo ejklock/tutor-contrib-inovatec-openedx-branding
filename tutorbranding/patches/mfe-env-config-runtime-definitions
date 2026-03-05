@@ -1,0 +1,4 @@
+{{- patch("InovatecFooter.jsx") }}
+{{- patch("MobileViewHeader.jsx") }}
+{{- patch("ThemedLogo.jsx") }}
+{{- patch("ToggleThemeButton.jsx") }}
