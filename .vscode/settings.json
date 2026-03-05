@@ -1,0 +1,15 @@
+{
+  "[scss]": {
+    "editor.formatOnSave": false
+  },
+  "[html]": {
+    "editor.formatOnSave": false
+  },
+  "files.associations": {
+    "**/tutorbranding/templates/**/*.scss": "plaintext",
+    "**/tutorbranding/templates/**/*.html": "jinja-html",
+    "**/tutorbranding/templates/**/*.js": "plaintext",
+    "**/tutorbranding/patches/**": "plaintext",
+    "**/tutorbranding/components/**/*.jsx": "plaintext"
+  }
+}

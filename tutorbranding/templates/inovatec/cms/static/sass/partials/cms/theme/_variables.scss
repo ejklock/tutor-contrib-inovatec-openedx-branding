@@ -1,10 +1,4 @@
-$primary: {
-        {
-        BRANDING_PRIMARY
-    }
-}
-
-;
+$primary: {{ BRANDING_PRIMARY }};
 $secondary: #F2F7F8;
 
 $blue: $primary !default;
