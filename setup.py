@@ -55,7 +55,7 @@ setup(
     install_requires=["tutor >= 21.0.0, < 22.0.0"],
     entry_points={
         "tutor.plugin.v1": [
-            "branding = tutorbranding.plugin"
+            "inovatec-branding = tutorbranding.plugin"
         ]
     },
     classifiers=[

@@ -120,14 +120,14 @@ hooks.Filters.ENV_TEMPLATE_ROOTS.add_item(
 
 hooks.Filters.ENV_TEMPLATE_TARGETS.add_items(
     [
-        ("theme", "build/openedx/themes"),
+        ("inovatec", "build/openedx/themes"),
         ("brand-openedx", "plugins/mfe/build/mfe"),
         ("brand-openedx-learner-dashboard", "plugins/mfe/build/mfe"),
     ],
 )
 
 # Force the rendering of scss files, even though they are included in a "partials" directory
-hooks.Filters.ENV_PATTERNS_INCLUDE.add_item(r"theme/lms/static/sass/partials/lms/theme/")
+hooks.Filters.ENV_PATTERNS_INCLUDE.add_item(r"inovatec/lms/static/sass/partials/lms/theme/")
 
 
 # MFEs
